@@ -32,7 +32,7 @@ app.use(cookieParser());
 // CORS for frontend
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: "https://moonlightcollege.com.ng",
     credentials: true,
   })
 );

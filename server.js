@@ -34,6 +34,7 @@ app.use(
   cors({
     origin: "https://moonlightcollege.com.ng",
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 

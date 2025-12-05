@@ -43,10 +43,10 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://moonlightcollege.com.ng",
-      "https://moonlight-api-nfuy.onrender.com" // if this is your deployed frontend
+      // "https://moonlight-api-nfuy.onrender.com" // if this is your deployed frontend
     ],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"]
+    // allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 

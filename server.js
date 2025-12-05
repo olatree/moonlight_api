@@ -41,6 +41,14 @@ app.use(
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", db: "connected", time: new Date().toISOString() });
 });
+// Temporary test route — remove later
+app.get("/api/test-connection", (req, res) => {
+  res.json({ 
+    message: "Frontend successfully connected to Render backend! 🎉",
+    timestamp: new Date().toISOString(),
+    dbConnected: mongoose.connection.readyState === 1 ? "Yes" : "No"
+  });
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/sessions", sessionRoutes);

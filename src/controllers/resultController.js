@@ -370,3 +370,33 @@ exports.getResultsBySubject = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// ----------------------------
+// Delete a Result
+// ----------------------------
+exports.deleteResult = async (req, res) => {
+  const { enrollmentId, subjectId, termId, sessionId } = req.body;
+
+  try {
+    if (!enrollmentId || !subjectId || !termId || !sessionId) {
+      return res.status(400).json({ message: "Enrollment, Subject, Term, and Session are required." });
+    }
+
+    const deleted = await Result.findOneAndDelete({
+      enrollmentId,
+      subjectId,
+      termId,
+      sessionId,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Result not found." });
+    }
+
+    res.status(200).json({ message: "Result deleted successfully.", deleted });
+  } catch (error) {
+    console.error("deleteResult error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};

@@ -38,18 +38,29 @@ app.use(cookieParser());
 //   })
 // );
 
+// app.use(
+//   cors({
+//     origin: [
+//       "http://localhost:5173",
+//       "https://moonlightcollege.com.ng",
+//       // "https://moonlight-api-nfuy.onrender.com" // if this is your deployed frontend
+//     ],
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//     exposedHeaders: ["set-cookie"], // Add this
+//     // allowedHeaders: ["Content-Type", "Authorization"]
+//   })
+// );
+
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
       "https://moonlightcollege.com.ng",
-      // "https://moonlight-api-nfuy.onrender.com" // if this is your deployed frontend
     ],
-    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["set-cookie"], // Add this
-    // allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 

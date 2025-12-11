@@ -27,22 +27,44 @@ const User = require("../models/User");
 //     return res.status(401).json({ message: "Not authorized, no token" });
 //   }
 // };
-const protect = async (req, res, next) => {
+
+
+// const protect = async (req, res, next) => {
+//   try {
+//     // const token = req.cookies?.jwt;
+//     const token = req.cookies.jwt;
+//     if (!token) return res.status(401).json({ message: "Not authorized, no token" });
+
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+//     const user = await User.findById(decoded.id).select("-password");
+//     if (!user) return res.status(401).json({ message: "User not found" });
+
+//     req.user = user; // <-- attach full user here
+//     next();
+//   } catch (err) {
+//     console.error("Auth middleware error:", err);
+//     res.status(401).json({ message: "Not authorized, token failed" });
+//   }
+// };
+
+exports.protect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization?.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: "Not authorized, no token" });
+  }
+
   try {
-    // const token = req.cookies?.jwt;
-    const token = req.cookies.jwt;
-    if (!token) return res.status(401).json({ message: "Not authorized, no token" });
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user) return res.status(401).json({ message: "User not found" });
-
-    req.user = user; // <-- attach full user here
+    req.user = await User.findById(decoded.id).select("-password");
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err);
-    res.status(401).json({ message: "Not authorized, token failed" });
+    res.status(401).json({ message: "Not authorized, invalid token" });
   }
 };
 

@@ -3,55 +3,90 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 // Generate and set JWT cookie
-const generateToken = (res, userId, role) => {
-  const token = jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
+// const generateToken = (res, userId, role) => {
+//   const token = jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
+//     expiresIn: "7d",
+//   });
+
+//   res.cookie("jwt", token, {
+//     httpOnly: true,
+//     // secure: process.env.NODE_ENV === "production", // true on production (HTTPS)
+//     secure: true, // true on production (HTTPS)
+//     sameSite: "None",
+//     path: "/",
+//     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//   });
+
+// return token;
+// };
+  const generateToken = (userId, role) => {
+  return jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
-
-  res.cookie("jwt", token, {
-    httpOnly: true,
-    // secure: process.env.NODE_ENV === "production", // true on production (HTTPS)
-    secure: true, // true on production (HTTPS)
-    sameSite: "None",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
-
-  return token;
 };
 
+
 // @desc Login user
+// exports.login = async (req, res) => {
+//   const { userId, password } = req.body;
+
+//   try {
+//     const user = await User.findOne({ userId });
+//     // if (!user) return res.status(400).json({ message: "Invalid ID or password" });
+//     if (!user) {
+//   res.clearCookie("jwt", {
+//     httpOnly: true,
+//     secure: true,
+//     sameSite: "none",
+//     path: "/",
+//   });
+//   return res.status(400).json({ message: "Invalid ID or password" });
+// }
+
+//     const isMatch = await user.matchPassword(password);
+//     // if (!isMatch) return res.status(400).json({ message: "Invalid ID or password" });
+//     if (!isMatch) {
+//   res.clearCookie("jwt", {
+//     httpOnly: true,
+//     secure: true,
+//     sameSite: "none",
+//     path: "/",
+//   });
+//   return res.status(400).json({ message: "Invalid ID or password" });
+// }
+
+//     generateToken(res, user._id, user.role);
+
+//     res.status(200).json({
+//       id: user._id,
+//       userId: user.userId,
+//       name: user.name,
+//       role: user.role,
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
 exports.login = async (req, res) => {
   const { userId, password } = req.body;
 
   try {
     const user = await User.findOne({ userId });
-    // if (!user) return res.status(400).json({ message: "Invalid ID or password" });
     if (!user) {
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  });
-  return res.status(400).json({ message: "Invalid ID or password" });
-}
+      return res.status(400).json({ message: "Invalid ID or password" });
+    }
 
     const isMatch = await user.matchPassword(password);
-    // if (!isMatch) return res.status(400).json({ message: "Invalid ID or password" });
     if (!isMatch) {
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  });
-  return res.status(400).json({ message: "Invalid ID or password" });
-}
+      return res.status(400).json({ message: "Invalid ID or password" });
+    }
 
-    generateToken(res, user._id, user.role);
+    // 🔥 Generate Bearer token
+    const token = generateToken(user._id, user.role);
 
-    res.json({
+    res.status(200).json({
+      token,
       id: user._id,
       userId: user.userId,
       name: user.name,
@@ -61,6 +96,7 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // @desc Register new user
 exports.register = async (req, res) => {

@@ -165,31 +165,6 @@ exports.getAllClassResults = async (req, res) => {
   }
 };
 
-
-
-// ----------------------------
-// Get Student Term Results
-// ----------------------------
-// exports.getStudentTermResults = async (req, res) => {
-//   const { enrollmentId, termId, sessionId } = req.query;
-//   console.log("📥 Incoming Query:", { enrollmentId, termId, sessionId });
-
-//   try {
-//     const results = await Result.find({ enrollmentId, termId, sessionId })
-//       .populate("subjectId", "name");
-
-//       console.log("📦 Found Results:", results);
-
-//     const totalSum = results.reduce((sum, r) => sum + (r.total || 0), 0);
-//     const termAverage = results.length ? totalSum / results.length : 0;
-
-//     res.status(200).json({ results, termAverage });
-//   } catch (error) {
-//     console.error("getStudentTermResults error:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 // ----------------------------
 // Get Student Term Results
 // ----------------------------
@@ -267,55 +242,8 @@ exports.getStudentYearlyResults = async (req, res) => {
 };
 
 // ----------------------------
-// Get Results By Subject (Class + Arm + Session + Term)
+// Get Results by Subject for a Class
 // ----------------------------
-// exports.getResultsBySubject = async (req, res) => {
-//   const { subjectId, classId, armId, sessionId, termId } = req.query;
-
-//   try {
-//     // 1️⃣ Find enrollments for the selected class, arm, and session
-//     const enrollments = await Enrollment.find({ classId, armId, sessionId })
-//       .populate("studentId", "name admissionNumber");
-
-//     const enrollmentIds = enrollments.map(e => e._id);
-
-//     // 2️⃣ Get results for that subject and those enrollments
-//     const results = await Result.find({
-//       enrollmentId: { $in: enrollmentIds },
-//       subjectId,
-//       sessionId,
-//       termId,
-//     })
-//       .populate("subjectId", "name")
-//       .populate({
-//         path: "enrollmentId",
-//         populate: { path: "studentId", select: "name admissionNumber" },
-//       });
-
-//     // 3️⃣ Transform response (student details + scores)
-//     const formatted = results.map(r => ({
-//       student: {
-//         id: r.enrollmentId.studentId._id,
-//         name: r.enrollmentId.studentId.name,
-//         admissionNumber: r.enrollmentId.studentId.admissionNumber,
-//       },
-//       subject: r.subjectId.name,
-//       ca1: r.ca1,
-//       ca2: r.ca2,
-//       ca3: r.ca3,
-//       ca4: r.ca4,
-//       exam: r.exam,
-//       total: r.total,
-//       grade: r.grade,
-//     }));
-
-//     res.status(200).json(formatted);
-//   } catch (error) {
-//     console.error("getResultsBySubject error:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-// Revised version to include all students even if they don't have results yet
 
 exports.getResultsBySubject = async (req, res) => {
   const { subjectId, classId, armId, sessionId, termId } = req.query;
@@ -375,28 +303,86 @@ exports.getResultsBySubject = async (req, res) => {
 // ----------------------------
 // Delete a Result
 // ----------------------------
-exports.deleteResult = async (req, res) => {
-  const { enrollmentId, subjectId, termId, sessionId } = req.body;
+// exports.deleteResult = async (req, res) => {
+//   const { enrollmentId, subjectId, termId, sessionId } = req.body;
+
+//   try {
+//     if (!enrollmentId || !subjectId || !termId || !sessionId) {
+//       return res.status(400).json({ message: "Enrollment, Subject, Term, and Session are required." });
+//     }
+
+//     const deleted = await Result.findOneAndDelete({
+//       enrollmentId,
+//       subjectId,
+//       termId,
+//       sessionId,
+//     });
+
+//     if (!deleted) {
+//       return res.status(404).json({ message: "Result not found." });
+//     }
+
+//     res.status(200).json({ message: "Result deleted successfully.", deleted });
+//   } catch (error) {
+//     console.error("deleteResult error:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+// ----------------------------
+// Delete ALL results by selection
+// ----------------------------
+exports.deleteResultsBySelection = async (req, res) => {
+  const { subjectId, classId, armId, sessionId, termId } = req.body;
 
   try {
-    if (!enrollmentId || !subjectId || !termId || !sessionId) {
-      return res.status(400).json({ message: "Enrollment, Subject, Term, and Session are required." });
+    if (!subjectId || !classId || !armId || !sessionId || !termId) {
+      return res.status(400).json({ message: "Missing required fields." });
     }
 
-    const deleted = await Result.findOneAndDelete({
-      enrollmentId,
+    // 1️⃣ Find all enrollments for class + arm + session
+    const enrollments = await Enrollment.find({ classId, armId, sessionId }).select("_id");
+    const enrollmentIds = enrollments.map(e => e._id);
+
+    if (enrollmentIds.length === 0) {
+      return res.status(404).json({ message: "No enrollments found." });
+    }
+
+    // 2️⃣ Delete results for these enrollments AND subject
+    const deleted = await Result.deleteMany({
+      enrollmentId: { $in: enrollmentIds },
       subjectId,
-      termId,
       sessionId,
+      termId,
     });
+
+    res.status(200).json({
+      message: `Deleted ${deleted.deletedCount} result(s).`,
+    });
+  } catch (error) {
+    console.error("deleteResultsBySelection error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// ----------------------------
+// Delete a single result
+// ----------------------------
+exports.deleteSingleResult = async (req, res) => {
+  const { resultId } = req.params;
+
+  try {
+    const deleted = await Result.findByIdAndDelete(resultId);
 
     if (!deleted) {
       return res.status(404).json({ message: "Result not found." });
     }
 
-    res.status(200).json({ message: "Result deleted successfully.", deleted });
+    res.status(200).json({ message: "Result deleted." });
   } catch (error) {
-    console.error("deleteResult error:", error);
+    console.error("deleteSingleResult error:", error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -6,7 +6,16 @@ const { verifyStudent } = require("../middleware/studentAuth");
 
 // Bulk add/update results for a class
 router.post("/add-or-update", resultController.addOrUpdateResults);
-router.delete("/delete", resultController.deleteResult);
+// router.delete("/delete", resultController.deleteResult);
+
+// DELETE ALL
+router.delete(
+  "/delete-by-selection",
+  resultController.deleteResultsBySelection
+);
+
+// DELETE SINGLE RESULT
+router.delete("/:resultId", resultController.deleteSingleResult);
 
 // Get all results for a class (by subject, term, session)
 router.get("/class", resultController.getClassResults);

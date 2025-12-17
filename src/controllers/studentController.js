@@ -353,64 +353,110 @@ exports.deleteStudent = async (req, res) => {
 // -------------------------
 // Login Student
 // -------------------------
+// exports.loginStudent = async (req, res) => {
+//   try {
+//     const { admissionNumber, password } = req.body;
+
+//     // 1️⃣ Validate input
+//     if (!admissionNumber || !password) {
+//       return res.status(400).json({ message: "Admission number and password are required." });
+//     }
+
+//     // 2️⃣ Find student by admission number
+//     const student = await Student.findOne({ admissionNumber, archived: false });
+//     if (!student) {
+//       return res.status(404).json({ message: "Student not found." });
+//     }
+
+//     // 3️⃣ Check if student is blocked
+//     if (student.blocked) {
+//       return res.status(403).json({ message: "Your account is blocked. Please contact the school." });
+//     }
+
+//     // 4️⃣ Compare password
+//     const isMatch = await bcrypt.compare(password, student.password);
+//     if (!isMatch) {
+//       return res.status(401).json({ message: "Invalid admission number or password." });
+//     }
+
+    
+
+//     // 5️⃣ Generate JWT token (valid for 7 days)
+//     const studentToken = jwt.sign(
+//       { id: student._id, admissionNumber: student.admissionNumber },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     // ✅ Set secure cookie
+//     res.cookie("studentToken", studentToken, {
+//       httpOnly: true,
+//       secure: true,
+//       sameSite: "none",
+//       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//     });
+
+//     // 6️⃣ Send response (hide hashed password)
+//     res.status(200).json({
+//       message: "Login successful.",
+//       studentToken,
+//       student: {
+//         id: student._id,
+//         name: student.name,
+//         admissionNumber: student.admissionNumber,
+//         image: student.image,
+//         gender: student.gender,
+//         dateOfBirth: student.dateOfBirth,
+//         parentContact: student.parentContact,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     res.status(500).json({ message: "Server error during login." });
+//   }
+// };
+
 exports.loginStudent = async (req, res) => {
   try {
     const { admissionNumber, password } = req.body;
 
-    // 1️⃣ Validate input
+    // 1. Basic Validation
     if (!admissionNumber || !password) {
-      return res.status(400).json({ message: "Admission number and password are required." });
+      return res.status(400).json({ message: "All fields are required." });
     }
 
-    // 2️⃣ Find student by admission number
+    // 2. Find Student & include password for comparison
     const student = await Student.findOne({ admissionNumber, archived: false });
     if (!student) {
-      return res.status(404).json({ message: "Student not found." });
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
-    // 3️⃣ Check if student is blocked
-    if (student.blocked) {
-      return res.status(403).json({ message: "Your account is blocked. Please contact the school." });
-    }
-
-    // 4️⃣ Compare password
+    // 3. Verify Password
     const isMatch = await bcrypt.compare(password, student.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid admission number or password." });
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
-    // 5️⃣ Generate JWT token (valid for 7 days)
-    const studentToken = jwt.sign(
-      { id: student._id, admissionNumber: student.admissionNumber },
+    // 4. Create JWT (Signed with Secret)
+    const token = jwt.sign(
+      { id: student._id, role: "student" },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // ✅ Set secure cookie
-    res.cookie("studentToken", studentToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    // 5. Send response (Exclude password)
+    const studentData = student.toObject();
+    delete studentData.password;
+
+    res.status(200).json({
+      message: "Welcome back!",
+      token, // The frontend will save this
+      student: studentData
     });
 
-    // 6️⃣ Send response (hide hashed password)
-    res.status(200).json({
-      message: "Login successful.",
-      studentToken,
-      student: {
-        id: student._id,
-        name: student.name,
-        admissionNumber: student.admissionNumber,
-        image: student.image,
-        gender: student.gender,
-        dateOfBirth: student.dateOfBirth,
-        parentContact: student.parentContact,
-      },
-    });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ message: "Server error during login." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error." });
   }
 };
 

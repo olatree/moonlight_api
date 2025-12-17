@@ -4,6 +4,10 @@ const router = express.Router();
 const resultController = require("../controllers/resultController");
 const { verifyStudent } = require("../middleware/studentAuth");
 
+// 🆕 NEW ROUTES - View Results by Student
+router.get("/by-student", resultController.getResultsByStudent);
+router.get("/student-profile", resultController.getStudentAcademicProfile);
+
 // Bulk add/update results for a class
 router.post("/add-or-update", resultController.addOrUpdateResults);
 // router.delete("/delete", resultController.deleteResult);
@@ -24,6 +28,7 @@ router.get("/class/all-subjects", resultController.getAllClassResults);
 
 // Get a student's term result
 router.get("/student-term", verifyStudent, resultController.getStudentTermResults);
+
 
 // Get a student's yearly result
 router.get("/student/yearly", resultController.getStudentYearlyResults);

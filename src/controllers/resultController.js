@@ -386,3 +386,257 @@ exports.deleteSingleResult = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// ----------------------------
+// Get Results by Student
+// ----------------------------
+exports.getResultsByStudent = async (req, res) => {
+  const { studentId, sessionId, termId } = req.query;
+
+  try {
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required." });
+    }
+
+    // Build query object
+    const query = { studentId };
+    if (sessionId) query.sessionId = sessionId;
+
+    // 1️⃣ Find enrollment(s) for this student
+    const enrollments = await Enrollment.find(query)
+      .populate("classId", "name")
+      .populate("armId", "name")
+      .populate("sessionId", "year");
+
+    if (!enrollments.length) {
+      return res.status(404).json({ 
+        message: "No enrollments found for this student." 
+      });
+    }
+
+    const enrollmentIds = enrollments.map(e => e._id);
+
+    // 2️⃣ Build results query
+    const resultsQuery = {
+      enrollmentId: { $in: enrollmentIds },
+    };
+    if (sessionId) resultsQuery.sessionId = sessionId;
+    if (termId) resultsQuery.termId = termId;
+
+    // 3️⃣ Fetch all results for these enrollments
+    const results = await Result.find(resultsQuery)
+      .populate("subjectId", "name")
+      .populate("termId", "name")
+      .populate("sessionId", "year")
+      .populate({
+        path: "enrollmentId",
+        populate: [
+          { path: "classId", select: "name" },
+          { path: "armId", select: "name" },
+        ],
+      })
+      .sort({ sessionId: -1, termId: 1, "subjectId.name": 1 });
+
+    if (!results.length) {
+      return res.status(404).json({ 
+        message: "No results found for this student." 
+      });
+    }
+
+    // 4️⃣ Group results by session and term
+    const groupedResults = {};
+
+    for (const result of results) {
+      const sessionYear = result.sessionId?.year || "Unknown Session";
+      const termName = result.termId?.name || "Unknown Term";
+      const key = `${sessionYear} - ${termName}`;
+
+      if (!groupedResults[key]) {
+        groupedResults[key] = {
+          session: sessionYear,
+          term: termName,
+          class: result.enrollmentId?.classId?.name || "N/A",
+          arm: result.enrollmentId?.armId?.name || "N/A",
+          subjects: [],
+          totalScore: 0,
+          subjectCount: 0,
+        };
+      }
+
+      groupedResults[key].subjects.push({
+        subject: result.subjectId?.name || "Unknown Subject",
+        ca1: result.ca1,
+        ca2: result.ca2,
+        ca3: result.ca3,
+        ca4: result.ca4,
+        exam: result.exam,
+        total: result.total,
+        grade: result.grade,
+      });
+
+      groupedResults[key].totalScore += result.total || 0;
+      groupedResults[key].subjectCount += 1;
+    }
+
+    // 5️⃣ Calculate averages
+    const formattedResults = Object.values(groupedResults).map(group => ({
+      ...group,
+      average: group.subjectCount > 0 
+        ? (group.totalScore / group.subjectCount).toFixed(2) 
+        : 0,
+    }));
+
+    res.status(200).json({
+      success: true,
+      studentId,
+      totalRecords: results.length,
+      results: formattedResults,
+    });
+
+  } catch (error) {
+    console.error("getResultsByStudent error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+// ----------------------------
+// Get Complete Student Academic Profile
+// ----------------------------
+exports.getStudentAcademicProfile = async (req, res) => {
+  const { studentId, sessionId } = req.query;
+
+  try {
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required." });
+    }
+
+    // 1️⃣ Get student basic info
+    const Student = require("../models/Student");
+    const student = await Student.findById(studentId).select(
+      "name admissionNumber dateOfBirth gender"
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found." });
+    }
+
+    // 2️⃣ Get enrollments
+    const query = { studentId };
+    if (sessionId) query.sessionId = sessionId;
+
+    const enrollments = await Enrollment.find(query)
+      .populate("classId", "name")
+      .populate("armId", "name")
+      .populate("sessionId", "year")
+      .sort({ sessionId: -1 });
+
+    if (!enrollments.length) {
+      return res.status(404).json({ 
+        message: "No enrollment history found for this student." 
+      });
+    }
+
+    // 3️⃣ Get all results for all enrollments
+    const enrollmentIds = enrollments.map(e => e._id);
+    const resultsQuery = {
+      enrollmentId: { $in: enrollmentIds },
+    };
+    if (sessionId) resultsQuery.sessionId = sessionId;
+
+    const results = await Result.find(resultsQuery)
+      .populate("subjectId", "name")
+      .populate("termId", "name")
+      .populate("sessionId", "year");
+
+    // 4️⃣ Get term reports (comments)
+    const reports = await TermReport.find({
+      enrollmentId: { $in: enrollmentIds },
+    })
+      .populate("termId", "name")
+      .populate("sessionId", "year");
+
+    // 5️⃣ Organize data by session
+    const academicHistory = [];
+
+    for (const enrollment of enrollments) {
+      const sessionResults = results.filter(
+        r => r.enrollmentId.toString() === enrollment._id.toString()
+      );
+
+      const sessionReports = reports.filter(
+        rep => rep.enrollmentId.toString() === enrollment._id.toString()
+      );
+
+      // Group by term
+      const termData = {};
+      for (const result of sessionResults) {
+        const termName = result.termId?.name || "Unknown Term";
+        
+        if (!termData[termName]) {
+          termData[termName] = {
+            term: termName,
+            subjects: [],
+            totalScore: 0,
+            subjectCount: 0,
+          };
+        }
+
+        termData[termName].subjects.push({
+          subject: result.subjectId?.name,
+          ca1: result.ca1,
+          ca2: result.ca2,
+          ca3: result.ca3,
+          ca4: result.ca4,
+          exam: result.exam,
+          total: result.total,
+          grade: result.grade,
+        });
+
+        termData[termName].totalScore += result.total || 0;
+        termData[termName].subjectCount += 1;
+      }
+
+      // Add comments to term data
+      for (const report of sessionReports) {
+        const termName = report.termId?.name;
+        if (termData[termName]) {
+          termData[termName].classTeacherComment = report.classTeacherComment;
+          termData[termName].principalComment = report.principalComment;
+        }
+      }
+
+      // Calculate term averages
+      const terms = Object.values(termData).map(term => ({
+        ...term,
+        average: term.subjectCount > 0 
+          ? (term.totalScore / term.subjectCount).toFixed(2) 
+          : 0,
+      }));
+
+      academicHistory.push({
+        session: enrollment.sessionId?.year,
+        class: enrollment.classId?.name,
+        arm: enrollment.armId?.name,
+        terms,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      student: {
+        id: student._id,
+        name: student.name,
+        admissionNumber: student.admissionNumber,
+        dateOfBirth: student.dateOfBirth,
+        gender: student.gender,
+      },
+      academicHistory,
+    });
+
+  } catch (error) {
+    console.error("getStudentAcademicProfile error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};

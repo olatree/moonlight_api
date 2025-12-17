@@ -137,6 +137,8 @@ exports.me = async (req, res) => {
     const user = await User.findById(req.user.id).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
+    console.log("REQ.USER:", req.user);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: err.message });

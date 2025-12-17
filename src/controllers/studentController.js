@@ -377,7 +377,7 @@ exports.loginStudent = async (req, res) => {
 
     // 4. Generate Token (We add the role here!)
     const token = jwt.sign(
-      { id: student._id, role: "student" }, 
+      { id: student._id, role: "student", admissionNumber: student.admissionNumber }, 
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );

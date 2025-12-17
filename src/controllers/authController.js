@@ -68,32 +68,51 @@ const jwt = require("jsonwebtoken");
 //   }
 // };
 
-exports.login = async (req, res) => {
-  const { userId, password } = req.body;
+// controllers/studentController.js
+const jwt = require("jsonwebtoken");
+const Student = require("../models/Student");
 
+exports.loginStudent = async (req, res) => {
   try {
-    const user = await User.findOne({ userId });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid ID or password" });
+    const { admissionNumber, password } = req.body;
+
+    // 1. Find student (check if not archived)
+    const student = await Student.findOne({ admissionNumber, archived: false });
+    if (!student) {
+      return res.status(404).json({ message: "Student record not found." });
     }
 
-    const isMatch = await user.matchPassword(password);
+    // 2. Check if blocked
+    if (student.blocked) {
+      return res.status(403).json({ message: "Account blocked. Contact admin." });
+    }
+
+    // 3. Compare password (using bcrypt)
+    // Note: Since your schema hashes the first name, ensure 'password' matches that.
+    const isMatch = await student.comparePassword(password); 
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid ID or password" });
+      return res.status(401).json({ message: "Invalid admission number or password." });
     }
 
-    // 🔥 Generate Bearer token
-    const token = generateToken(user._id, user.role);
+    // 4. Generate Token (We add the role here!)
+    const token = jwt.sign(
+      { id: student._id, role: "student" }, 
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
+    // 5. Send Response
     res.status(200).json({
+      message: "Login successful",
       token,
-      id: user._id,
-      userId: user.userId,
-      name: user.name,
-      role: user.role,
+      student: {
+        id: student._id,
+        name: student.name,
+        admissionNumber: student.admissionNumber
+      }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error during login." });
   }
 };
 

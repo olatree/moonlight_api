@@ -68,51 +68,32 @@ const jwt = require("jsonwebtoken");
 //   }
 // };
 
-// controllers/studentController.js
-const jwt = require("jsonwebtoken");
-const Student = require("../models/Student");
+exports.login = async (req, res) => {
+  const { userId, password } = req.body;
 
-exports.loginStudent = async (req, res) => {
   try {
-    const { admissionNumber, password } = req.body;
-
-    // 1. Find student (check if not archived)
-    const student = await Student.findOne({ admissionNumber, archived: false });
-    if (!student) {
-      return res.status(404).json({ message: "Student record not found." });
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid ID or password" });
     }
 
-    // 2. Check if blocked
-    if (student.blocked) {
-      return res.status(403).json({ message: "Account blocked. Contact admin." });
-    }
-
-    // 3. Compare password (using bcrypt)
-    // Note: Since your schema hashes the first name, ensure 'password' matches that.
-    const isMatch = await student.comparePassword(password); 
+    const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid admission number or password." });
+      return res.status(400).json({ message: "Invalid ID or password" });
     }
 
-    // 4. Generate Token (We add the role here!)
-    const token = jwt.sign(
-      { id: student._id, role: "student" }, 
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // 🔥 Generate Bearer token
+    const token = generateToken(user._id, user.role);
 
-    // 5. Send Response
     res.status(200).json({
-      message: "Login successful",
       token,
-      student: {
-        id: student._id,
-        name: student.name,
-        admissionNumber: student.admissionNumber
-      }
+      id: user._id,
+      userId: user.userId,
+      name: user.name,
+      role: user.role,
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error during login." });
+    res.status(500).json({ message: err.message });
   }
 };
 

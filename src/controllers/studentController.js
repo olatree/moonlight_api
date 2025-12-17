@@ -420,46 +420,45 @@ exports.loginStudent = async (req, res) => {
   try {
     const { admissionNumber, password } = req.body;
 
-    // 1. Basic Validation
-    if (!admissionNumber || !password) {
-      return res.status(400).json({ message: "All fields are required." });
-    }
-
-    // 2. Find Student & include password for comparison
+    // 1. Find student (check if not archived)
     const student = await Student.findOne({ admissionNumber, archived: false });
     if (!student) {
-      return res.status(401).json({ message: "Invalid credentials." });
+      return res.status(404).json({ message: "Student record not found." });
     }
 
-    // 3. Verify Password
-    const isMatch = await bcrypt.compare(password, student.password);
+    // 2. Check if blocked
+    if (student.blocked) {
+      return res.status(403).json({ message: "Account blocked. Contact admin." });
+    }
+
+    // 3. Compare password (using bcrypt)
+    // Note: Since your schema hashes the first name, ensure 'password' matches that.
+    const isMatch = await student.comparePassword(password); 
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials." });
+      return res.status(401).json({ message: "Invalid admission number or password." });
     }
 
-    // 4. Create JWT (Signed with Secret)
+    // 4. Generate Token (We add the role here!)
     const token = jwt.sign(
-      { id: student._id, role: "student" },
+      { id: student._id, role: "student" }, 
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // 5. Send response (Exclude password)
-    const studentData = student.toObject();
-    delete studentData.password;
-
+    // 5. Send Response
     res.status(200).json({
-      message: "Welcome back!",
-      token, // The frontend will save this
-      student: studentData
+      message: "Login successful",
+      token,
+      student: {
+        id: student._id,
+        name: student.name,
+        admissionNumber: student.admissionNumber
+      }
     });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error." });
+  } catch (err) {
+    res.status(500).json({ message: "Server error during login." });
   }
 };
-
 // -------------------------
 // Get Current Logged-in Student
 // -------------------------

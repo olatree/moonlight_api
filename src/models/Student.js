@@ -57,4 +57,9 @@ studentSchema.pre("save", async function (next) {
   next();
 });
 
+// ====== ADD THIS METHOD ======
+studentSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
 module.exports = mongoose.model("Student", studentSchema);

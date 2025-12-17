@@ -407,7 +407,7 @@ exports.getResultsByStudent = async (req, res) => {
     const enrollments = await Enrollment.find(query)
       .populate("classId", "name")
       .populate("armId", "name")
-      .populate("sessionId", "year");
+      .populate("sessionId", "name");
 
     if (!enrollments.length) {
       return res.status(404).json({ 
@@ -428,7 +428,7 @@ exports.getResultsByStudent = async (req, res) => {
     const results = await Result.find(resultsQuery)
       .populate("subjectId", "name")
       .populate("termId", "name")
-      .populate("sessionId", "year")
+      .populate("sessionId", "name")
       .populate({
         path: "enrollmentId",
         populate: [
@@ -448,7 +448,7 @@ exports.getResultsByStudent = async (req, res) => {
     const groupedResults = {};
 
     for (const result of results) {
-      const sessionYear = result.sessionId?.year || "Unknown Session";
+      const sessionYear = result.sessionId?.name || "Unknown Session";
       const termName = result.termId?.name || "Unknown Term";
       const key = `${sessionYear} - ${termName}`;
 
@@ -465,6 +465,7 @@ exports.getResultsByStudent = async (req, res) => {
       }
 
       groupedResults[key].subjects.push({
+        _id: result._id,  // ← THIS IS THE KEY ADDITION
         subject: result.subjectId?.name || "Unknown Subject",
         ca1: result.ca1,
         ca2: result.ca2,
@@ -529,7 +530,7 @@ exports.getStudentAcademicProfile = async (req, res) => {
     const enrollments = await Enrollment.find(query)
       .populate("classId", "name")
       .populate("armId", "name")
-      .populate("sessionId", "year")
+      .populate("sessionId", "name")
       .sort({ sessionId: -1 });
 
     if (!enrollments.length) {
@@ -548,14 +549,14 @@ exports.getStudentAcademicProfile = async (req, res) => {
     const results = await Result.find(resultsQuery)
       .populate("subjectId", "name")
       .populate("termId", "name")
-      .populate("sessionId", "year");
+      .populate("sessionId", "name");
 
     // 4️⃣ Get term reports (comments)
     const reports = await TermReport.find({
       enrollmentId: { $in: enrollmentIds },
     })
       .populate("termId", "name")
-      .populate("sessionId", "year");
+      .populate("sessionId", "name");
 
     // 5️⃣ Organize data by session
     const academicHistory = [];
@@ -616,7 +617,7 @@ exports.getStudentAcademicProfile = async (req, res) => {
       }));
 
       academicHistory.push({
-        session: enrollment.sessionId?.year,
+        session: enrollment.sessionId?.name,
         class: enrollment.classId?.name,
         arm: enrollment.armId?.name,
         terms,
